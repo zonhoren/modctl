@@ -53,12 +53,19 @@ func (b *backend) Pull(ctx context.Context, target string, cfg *config.Pull) err
 	}
 
 	repo, tag := ref.Repository(), ref.Tag()
+	// A digest-only reference (no tag) must resolve via its digest, not an
+	// empty tag string -- mirrors the same fix already applied in rm.go's
+	// Remove for the identical Referencer shape.
+	reference := tag
+	if ref.Digest() != "" {
+		reference = ref.Digest()
+	}
 	src, err := remote.New(repo, remote.WithPlainHTTP(cfg.PlainHTTP), remote.WithInsecure(cfg.Insecure), remote.WithProxy(cfg.Proxy))
 	if err != nil {
 		return fmt.Errorf("failed to create the remote client: %w", err)
 	}
 
-	manifestDesc, manifestReader, err := src.Manifests().FetchReference(ctx, tag)
+	manifestDesc, manifestReader, err := src.Manifests().FetchReference(ctx, reference)
 	if err != nil {
 		return fmt.Errorf("failed to fetch the manifest: %w", err)
 	}
@@ -100,7 +107,7 @@ func (b *backend) Pull(ctx context.Context, target string, cfg *config.Pull) err
 		}
 	} else {
 		fn = func(desc ocispec.Descriptor) error {
-			return pullIfNotExist(gctx, pb, internalpb.NormalizePrompt("Pulling blob"), src, dst, desc, repo, tag)
+			return pullIfNotExist(gctx, pb, internalpb.NormalizePrompt("Pulling blob"), src, dst, desc, repo, reference)
 		}
 	}
 
@@ -144,14 +151,14 @@ func (b *backend) Pull(ctx context.Context, target string, cfg *config.Pull) err
 
 	// copy the config.
 	if err := retry.Do(func() error {
-		return pullIfNotExist(ctx, pb, internalpb.NormalizePrompt("Pulling config"), src, dst, manifest.Config, repo, tag)
+		return pullIfNotExist(ctx, pb, internalpb.NormalizePrompt("Pulling config"), src, dst, manifest.Config, repo, reference)
 	}, append(defaultRetryOpts, retry.Context(ctx))...); err != nil {
 		return fmt.Errorf("failed to pull config to local: %w", err)
 	}
 
 	// copy the manifest.
 	if err := retry.Do(func() error {
-		return pullIfNotExist(ctx, pb, internalpb.NormalizePrompt("Pulling manifest"), src, dst, manifestDesc, repo, tag)
+		return pullIfNotExist(ctx, pb, internalpb.NormalizePrompt("Pulling manifest"), src, dst, manifestDesc, repo, reference)
 	}, append(defaultRetryOpts, retry.Context(ctx))...); err != nil {
 		return fmt.Errorf("failed to pull manifest to local: %w", err)
 	}

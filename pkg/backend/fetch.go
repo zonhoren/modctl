@@ -50,12 +50,18 @@ func (b *backend) Fetch(ctx context.Context, target string, cfg *config.Fetch) e
 	}
 
 	repo, tag := ref.Repository(), ref.Tag()
+	// A digest-only reference (no tag) must resolve via its digest, not an
+	// empty tag string -- same fix as Pull in pull.go.
+	reference := tag
+	if ref.Digest() != "" {
+		reference = ref.Digest()
+	}
 	client, err := remote.New(repo, remote.WithPlainHTTP(cfg.PlainHTTP), remote.WithInsecure(cfg.Insecure))
 	if err != nil {
 		return fmt.Errorf("failed to create remote client: %w", err)
 	}
 
-	_, manifestReader, err := client.Manifests().FetchReference(ctx, tag)
+	_, manifestReader, err := client.Manifests().FetchReference(ctx, reference)
 	if err != nil {
 		return fmt.Errorf("failed to fetch the manifest: %w", err)
 	}
