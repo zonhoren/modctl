@@ -211,6 +211,19 @@ func downloadAndExtractFetchLayer(ctx context.Context, pb *internalpb.ProgressBa
 		outputPath += mediaTypeTarSuffix
 	}
 
+	// dfdaemon's DownloadTask errors ("Internal error", output path already
+	// exists) if outputPath is already present -- there is no overwrite/force
+	// flag on the Download proto (only force_hard_link, which is unrelated).
+	// A layer download that gets cancelled mid-write (e.g. a caller-side
+	// deadline, such as kubelet's ~2min NodePublishVolume timeout in
+	// model-csi-driver) leaves a partial file behind, which then makes every
+	// subsequent retry.Do attempt fail immediately and permanently on this
+	// same error -- confirmed live, 2026-09-07. Clear any stale file before
+	// each attempt so a retry can actually succeed. Same fix as pull_by_d7y.go.
+	if err := os.Remove(outputPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove stale output path %s: %w", outputPath, err)
+	}
+
 	// Download layer via Dragonfly.
 	request := &dfdaemon.DownloadTaskRequest{
 		Download: &common.Download{
