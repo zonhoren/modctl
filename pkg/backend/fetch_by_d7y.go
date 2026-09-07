@@ -53,13 +53,21 @@ func (b *backend) fetchByDragonfly(ctx context.Context, target string, cfg *conf
 	}
 
 	registry, repo, tag := ref.Domain(), ref.Repository(), ref.Tag()
+	// A digest-only reference (no tag) must resolve via its digest, not an
+	// empty tag string -- same fix as pull.go's Pull / pull_by_d7y.go's
+	// pullByDragonfly, mirroring Remove's already-correct Referencer
+	// handling.
+	reference := tag
+	if ref.Digest() != "" {
+		reference = ref.Digest()
+	}
 	src, err := remote.New(repo, remote.WithPlainHTTP(cfg.PlainHTTP), remote.WithInsecure(cfg.Insecure), remote.WithProxy(cfg.Proxy))
 	if err != nil {
 		return fmt.Errorf("failed to create remote client: %w", err)
 	}
 
 	// Fetch and decode manifest.
-	_, manifestReader, err := src.Manifests().FetchReference(ctx, tag)
+	_, manifestReader, err := src.Manifests().FetchReference(ctx, reference)
 	if err != nil {
 		return fmt.Errorf("failed to fetch manifest: %w", err)
 	}
