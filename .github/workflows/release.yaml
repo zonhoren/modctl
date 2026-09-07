@@ -155,4 +155,9 @@ jobs:
           checksums.txt
         generate_release_notes: true
       env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        # Upstream uses a custom RELEASE_TOKEN secret (org-level PAT); this
+        # fork has no such secret configured, and none is needed here -- the
+        # job above already grants `permissions: contents: write`, which is
+        # sufficient for softprops/action-gh-release's draft-release and
+        # release-notes-generation calls on a same-repo tag push.
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
