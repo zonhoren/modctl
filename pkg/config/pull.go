@@ -40,6 +40,14 @@ type Pull struct {
 	ProgressWriter    io.Writer
 	DisableProgress   bool
 	DragonflyEndpoint string
+	// ForceHardLink requires Dragonfly to hard-link the downloaded blob into
+	// OutputPath rather than silently falling back to a copy when a hard
+	// link isn't possible (e.g. a cross-device output path). Defaults to
+	// false for backward compatibility; a caller whose topology guarantees
+	// same-device output (e.g. a shared hostPath content-store mount) should
+	// set this to true so a topology regression fails the pull loudly
+	// instead of silently doubling disk usage.
+	ForceHardLink bool
 }
 
 func NewPull() *Pull {
@@ -54,6 +62,7 @@ func NewPull() *Pull {
 		ProgressWriter:    os.Stdout,
 		DisableProgress:   false,
 		DragonflyEndpoint: "",
+		ForceHardLink:     false,
 	}
 }
 
@@ -72,6 +81,11 @@ func (p *Pull) Validate() error {
 	// DragonflyEndpoint only can work with ExtractFromRemote scenario.
 	if p.DragonflyEndpoint != "" && !p.ExtractFromRemote {
 		return fmt.Errorf("dragonfly endpoint only can work with extract from remote scenario")
+	}
+
+	// ForceHardLink only applies to the Dragonfly download path.
+	if p.ForceHardLink && p.DragonflyEndpoint == "" {
+		return fmt.Errorf("force hard link only can work with dragonfly endpoint scenario")
 	}
 
 	return nil

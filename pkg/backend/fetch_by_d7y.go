@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	common "d7y.io/api/v2/pkg/apis/common/v2"
 	dfdaemon "d7y.io/api/v2/pkg/apis/dfdaemon/v2"
 	"github.com/avast/retry-go/v4"
 	legacymodelspec "github.com/dragonflyoss/model-spec/specs-go/v1"
@@ -225,18 +224,7 @@ func downloadAndExtractFetchLayer(ctx context.Context, pb *internalpb.ProgressBa
 	}
 
 	// Download layer via Dragonfly.
-	request := &dfdaemon.DownloadTaskRequest{
-		Download: &common.Download{
-			Url:      buildBlobURL(ref, cfg.PlainHTTP, desc.Digest.String()),
-			Type:     common.TaskType_STANDARD,
-			Priority: common.Priority_LEVEL6,
-			RequestHeader: map[string]string{
-				"Authorization": authToken,
-			},
-			OutputPath:    &outputPath,
-			ForceHardLink: false,
-		},
-	}
+	request := buildDownloadTaskRequest(buildBlobURL(ref, cfg.PlainHTTP, desc.Digest.String()), outputPath, authToken, cfg.ForceHardLink)
 
 	stream, err := client.DownloadTask(ctx, request)
 	if err != nil {

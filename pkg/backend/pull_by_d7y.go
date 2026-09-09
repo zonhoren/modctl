@@ -184,6 +184,25 @@ func buildBlobURL(ref Referencer, plainHTTP bool, digest string) string {
 	return fmt.Sprintf("%s://%s/v2/%s/blobs/%s", scheme, ref.Domain(), repo, digest)
 }
 
+// buildDownloadTaskRequest builds the Dragonfly gRPC download request shared
+// by the Pull and Fetch paths. Split out from downloadAndExtractLayer /
+// downloadAndExtractFetchLayer so ForceHardLink wiring is unit-testable
+// without a live dfdaemon gRPC connection.
+func buildDownloadTaskRequest(url, outputPath, authToken string, forceHardLink bool) *dfdaemon.DownloadTaskRequest {
+	return &dfdaemon.DownloadTaskRequest{
+		Download: &common.Download{
+			Url:      url,
+			Type:     common.TaskType_STANDARD,
+			Priority: common.Priority_LEVEL6,
+			RequestHeader: map[string]string{
+				"Authorization": authToken,
+			},
+			OutputPath:    &outputPath,
+			ForceHardLink: forceHardLink,
+		},
+	}
+}
+
 // processLayer handles downloading and extracting a single layer.
 func processLayer(ctx context.Context, pb *internalpb.ProgressBar, client dfdaemon.DfdaemonDownloadClient, ref Referencer, manifest ocispec.Manifest, desc ocispec.Descriptor, authToken string, cfg *config.Pull) error {
 	err := retry.Do(func() error {
@@ -247,18 +266,7 @@ func downloadAndExtractLayer(ctx context.Context, pb *internalpb.ProgressBar, cl
 	}
 
 	// Download layer.
-	request := &dfdaemon.DownloadTaskRequest{
-		Download: &common.Download{
-			Url:      buildBlobURL(ref, cfg.PlainHTTP, desc.Digest.String()),
-			Type:     common.TaskType_STANDARD,
-			Priority: common.Priority_LEVEL6,
-			RequestHeader: map[string]string{
-				"Authorization": authToken,
-			},
-			OutputPath:    &outputPath,
-			ForceHardLink: false,
-		},
-	}
+	request := buildDownloadTaskRequest(buildBlobURL(ref, cfg.PlainHTTP, desc.Digest.String()), outputPath, authToken, cfg.ForceHardLink)
 
 	stream, err := client.DownloadTask(ctx, request)
 	if err != nil {

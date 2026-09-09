@@ -56,6 +56,7 @@ func init() {
 	flags.StringVar(&pullConfig.ExtractDir, "extract-dir", "", "specify the extract dir for extracting the model artifact")
 	flags.BoolVar(&pullConfig.ExtractFromRemote, "extract-from-remote", false, "turning on this flag will pull and extract the data from remote registry and no longer store model artifact locally, so user must specify extract-dir as the output directory")
 	flags.StringVar(&pullConfig.DragonflyEndpoint, "dragonfly-endpoint", "", "specify the dragonfly endpoint for the pull operation, which will download and hardlink the blob by dragonfly GRPC service, this mode requires extract-from-remote must be true")
+	flags.BoolVar(&pullConfig.ForceHardLink, "force-hard-link", false, "require dragonfly to hard-link the downloaded blob into the output path rather than falling back to a copy; fails the pull instead of silently doubling disk usage if a hard link isn't possible, this mode requires dragonfly-endpoint must be set")
 
 	if err := viper.BindPFlags(flags); err != nil {
 		panic(fmt.Errorf("bind cache pull flags to viper: %w", err))

@@ -38,6 +38,12 @@ type Fetch struct {
 	ProgressWriter    io.Writer
 	DisableProgress   bool
 	Hooks             PullHooks
+	// ForceHardLink requires Dragonfly to hard-link the downloaded blob into
+	// the output path rather than silently falling back to a copy when a
+	// hard link isn't possible. See config.Pull.ForceHardLink for the full
+	// rationale -- same flag, same default (false), same Dragonfly-only
+	// scope, mirrored here for the Fetch path.
+	ForceHardLink bool
 }
 
 func NewFetch() *Fetch {
@@ -52,6 +58,7 @@ func NewFetch() *Fetch {
 		ProgressWriter:    os.Stdout,
 		DisableProgress:   false,
 		Hooks:             &emptyPullHook{},
+		ForceHardLink:     false,
 	}
 }
 
@@ -66,6 +73,11 @@ func (f *Fetch) Validate() error {
 
 	if len(f.Patterns) == 0 {
 		return fmt.Errorf("patterns are required")
+	}
+
+	// ForceHardLink only applies to the Dragonfly download path.
+	if f.ForceHardLink && f.DragonflyEndpoint == "" {
+		return fmt.Errorf("force hard link only can work with dragonfly endpoint scenario")
 	}
 
 	return nil
