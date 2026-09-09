@@ -133,6 +133,10 @@ jobs:
   create-release:
     needs: release
     runs-on: ubuntu-latest
+    # This repository's default workflow permission is `read`, so the ambient
+    # GITHUB_TOKEN cannot create a release unless this job asks for write.
+    permissions:
+      contents: write
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131    # v7.0.0
@@ -155,4 +159,4 @@ jobs:
           checksums.txt
         generate_release_notes: true
       env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
